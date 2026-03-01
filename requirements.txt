@@ -1,0 +1,10 @@
+# Core
+requests>=2.31.0
+numpy>=1.24.0
+
+# Coinbase JWT Authentication
+PyJWT>=2.8.0
+cryptography>=41.0.0
+
+# Optional: for faster startup verification
+python-dotenv>=1.0.0
