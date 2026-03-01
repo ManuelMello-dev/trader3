@@ -98,10 +98,14 @@ class TradingOrchestrator:
             return
 
         bid, ask = self.client.get_best_bid_ask(pid)
-        current_price = (bid + ask) / 2 if bid and ask else candles[-1]["close"]
+        current_price = (bid + ask) / 2 if (bid and ask and bid > 0 and ask > 0) else candles[-1]["close"]
 
         # ── Market analysis ───────────────────────────────────────────────────
         analysis = self.analyzer.analyze(candles)
+        if analysis.reason == "Zero price data from API":
+            log.warning(f"Skipping tick for {pid}: {analysis.reason}")
+            return
+            
         state    = analysis.features  # 24-element feature vector
 
         log.info(f"  Price={fmt(current_price)} | Trend={analysis.trend} | "

@@ -97,7 +97,13 @@ class CoinbaseClient:
                              params={"product_ids": product_id})
         if data and "pricebooks" in data and data["pricebooks"]:
             pb = data["pricebooks"][0]
-            return float(pb["bids"][0]["price"]), float(pb["asks"][0]["price"])
+            try:
+                bid = float(pb["bids"][0]["price"]) if pb.get("bids") else None
+                ask = float(pb["asks"][0]["price"]) if pb.get("asks") else None
+                if bid is not None and ask is not None:
+                    return bid, ask
+            except (IndexError, ValueError, KeyError):
+                pass
         return None, None
 
     def get_product(self, product_id: str):

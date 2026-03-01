@@ -19,9 +19,12 @@ def fmt(price: float) -> str:
     # Very small — use scientific or enough decimals
     # Find how many leading zeros after decimal point
     import math
-    mag = -int(math.floor(math.log10(abs(price))))
-    decimals = mag + 4  # show 4 significant digits after leading zeros
-    return f"{price:.{decimals}f}"
+    try:
+        mag = -int(math.floor(math.log10(abs(price))))
+        decimals = mag + 4  # show 4 significant digits after leading zeros
+        return f"{price:.{decimals}f}"
+    except (ValueError, OverflowError):
+        return str(price)
 
 def fmt_pct(value: float) -> str:
     return f"{value*100:.3f}%"

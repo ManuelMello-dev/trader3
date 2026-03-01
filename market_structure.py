@@ -86,7 +86,7 @@ class MarketStructureAnalyzer:
         v = np.array([x["volume"] for x in candles], dtype=np.float64)
 
         # Guard: all-zero price data means API returned bad data
-        if c[-1] == 0 or np.max(c) == 0:
+        if c[-1] <= 0 or np.max(c) <= 0:
             return MarketAnalysis(reason="Zero price data from API")
 
         result = MarketAnalysis()
@@ -122,16 +122,17 @@ class MarketStructureAnalyzer:
         result.support_zones  = sup_zones
         result.resist_zones   = res_zones
 
-        # Fallback: if no zones detected, use ATR-derived levels
-        if sup_zones:
+        # Nearest support calculation with robust fallback
+        if sup_zones and sup_zones[0].price > 0:
             result.nearest_support = sup_zones[0].price
         else:
-            result.nearest_support = c[-1] - result.atr * 2.0  # 2 ATRs below
+            result.nearest_support = max(c[-1] - result.atr * 2.0, c[-1] * 0.9)
 
-        if res_zones:
+        # Nearest resistance calculation with robust fallback
+        if res_zones and res_zones[0].price > 0:
             result.nearest_resist = res_zones[0].price
         else:
-            result.nearest_resist = c[-1] + result.atr * 2.0   # 2 ATRs above
+            result.nearest_resist = c[-1] + result.atr * 2.0 if result.atr > 0 else c[-1] * 1.1
 
         # Order blocks
         result.order_block_bull, result.order_block_bear = self._find_order_blocks(candles)
