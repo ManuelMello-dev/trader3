@@ -5,6 +5,12 @@ Coordinates: CoinSelector → MarketStructure → NeuralAgent → RiskManager �
 Runs 24/7 in a main loop, learns from every trade outcome.
 """
 
+import sys, os
+# Ensure the directory containing this file is always on the Python path
+# so sibling modules (market_structure, neural_agent, etc.) are importable
+# regardless of how or where the container launches main.py.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import time, json, logging, sys
 from datetime import datetime
 import config
@@ -13,6 +19,7 @@ from market_structure  import MarketStructureAnalyzer
 from neural_agent      import TradingAgent
 from coin_selector     import CoinSelector
 from risk_manager      import RiskManager, Position
+from price_fmt         import fmt, fmt_pct, fmt_size
 
 # ── Logging Setup ─────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -86,8 +93,8 @@ class TradingOrchestrator:
         # ── Fetch market data ─────────────────────────────────────────────────
         candles = self.client.get_candles(pid, config.CANDLE_GRANULARITY,
                                           config.LOOKBACK_CANDLES)
-        if len(candles) < 50:
-            log.warning(f"Insufficient candles for {pid}")
+        if len(candles) < 20:
+            log.warning(f"Insufficient candles for {pid} (got {len(candles)})")
             return
 
         bid, ask = self.client.get_best_bid_ask(pid)
@@ -97,10 +104,11 @@ class TradingOrchestrator:
         analysis = self.analyzer.analyze(candles)
         state    = analysis.features  # 24-element feature vector
 
-        log.info(f"  Price={current_price:.6f} | Trend={analysis.trend} | "
+        log.info(f"  Price={fmt(current_price)} | Trend={analysis.trend} | "
                  f"Structure={analysis.structure} | RSI={analysis.rsi:.1f} | "
-                 f"Rule={analysis.signal}({analysis.confidence:.2f}) | "
-                 f"Reason: {analysis.reason}")
+                 f"Support={fmt(analysis.nearest_support)} | Resist={fmt(analysis.nearest_resist)} | "
+                 f"Swings H={analysis.swing_highs_count} L={analysis.swing_lows_count} | "
+                 f"Rule={analysis.signal}({analysis.confidence:.2f}) | Reason: {analysis.reason}")
 
         # ── Portfolio update ──────────────────────────────────────────────────
         usdc_balance   = self.client.get_balance("USDC")
@@ -159,7 +167,7 @@ class TradingOrchestrator:
     # ── Execution ─────────────────────────────────────────────────────────────
     def _execute_buy(self, pid: str, price: float, size_usdc: float,
                      analysis, state: list):
-        log.info(f"  🟢 BUY {pid} | ${size_usdc:.2f} USDC | Price≈{price:.6f}")
+        log.info(f"  🟢 BUY {pid} | ${size_usdc:.2f} USDC | Price≈{fmt(price)}")
         result = self.client.market_buy(pid, size_usdc)
         if result and result.get("success"):
             # Estimate base size received
@@ -180,12 +188,12 @@ class TradingOrchestrator:
         pos = self.risk.positions.get(pid)
         if not pos:
             return
-        log.info(f"  🔴 SELL {pid} | {pos.base_size:.8f} | Price≈{price:.6f}")
+        log.info(f"  🔴 SELL {pid} | {fmt_size(pos.base_size)} | Price≈{fmt(price)}")
         result = self.client.market_sell(pid, pos.base_size)
         if result and result.get("success"):
             pnl = self.risk.close_position(pid, price)
             reward = pnl if pnl is not None else 0.0
-            log.info(f"  💸 PnL: {reward*100:.3f}%")
+            log.info(f"  💸 PnL: {fmt_pct(reward)} | reward={reward:.6f}")
 
             # Teach the agent
             if self.last_state:
