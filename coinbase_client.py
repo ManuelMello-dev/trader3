@@ -79,18 +79,29 @@ class CoinbaseClient:
                              params={"start": start, "end": end, "granularity": granularity})
         if not data or "candles" not in data:
             return []
-        candles = sorted(data["candles"], key=lambda x: int(x["start"]))
-        return [
-            {
-                "time":   int(c["start"]),
-                "open":   float(c["open"]),
-                "high":   float(c["high"]),
-                "low":    float(c["low"]),
-                "close":  float(c["close"]),
-                "volume": float(c["volume"]),
-            }
-            for c in candles
-        ]
+        
+        valid_candles = []
+        for c in data["candles"]:
+            try:
+                candle = {
+                    "time":   int(c["start"]),
+                    "open":   float(c["open"]),
+                    "high":   float(c["high"]),
+                    "low":    float(c["low"]),
+                    "close":  float(c["close"]),
+                    "volume": float(c["volume"]),
+                }
+                # Ensure price is non-zero
+                if candle["close"] > 0:
+                    valid_candles.append(candle)
+            except (ValueError, KeyError):
+                continue
+                
+        if not valid_candles:
+            log.warning(f"No valid candles (non-zero price) found for {product_id}")
+            return []
+            
+        return sorted(valid_candles, key=lambda x: x["time"])
 
     def get_best_bid_ask(self, product_id: str):
         data = self._request("GET", f"/api/v3/brokerage/best_bid_ask",

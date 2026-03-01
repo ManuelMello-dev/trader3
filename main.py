@@ -99,11 +99,16 @@ class TradingOrchestrator:
 
         bid, ask = self.client.get_best_bid_ask(pid)
         current_price = (bid + ask) / 2 if (bid and ask and bid > 0 and ask > 0) else candles[-1]["close"]
+        
+        # Stricter guard: if price is still zero or invalid, skip tick
+        if current_price <= 0:
+            log.warning(f"Skipping tick for {pid}: current_price is {current_price}")
+            return
 
         # ── Market analysis ───────────────────────────────────────────────────
         analysis = self.analyzer.analyze(candles)
-        if analysis.reason == "Zero price data from API":
-            log.warning(f"Skipping tick for {pid}: {analysis.reason}")
+        if analysis.reason == "Zero price data from API" or analysis.nearest_support <= 0:
+            log.warning(f"Skipping tick for {pid}: {analysis.reason or 'Invalid levels'}")
             return
             
         state    = analysis.features  # 24-element feature vector
