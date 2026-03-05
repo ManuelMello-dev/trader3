@@ -107,8 +107,10 @@ class TradingOrchestrator:
 
         # ── Market analysis ───────────────────────────────────────────────────
         analysis = self.analyzer.analyze(candles)
-        if analysis.reason == "Zero price data from API" or analysis.nearest_support <= 0:
-            log.warning(f"Skipping tick for {pid}: {analysis.reason or 'Invalid levels'}")
+        
+        # 🔒 Final Catch-All: Skip tick if zero price data is detected
+        if analysis.signal == "SKIP_TICK" or current_price <= 0:
+            log.warning(f"🚨 SKIP_TICK: {pid} at price {current_price} (Reason: {analysis.reason})")
             return
             
         state    = analysis.features  # 24-element feature vector

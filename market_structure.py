@@ -255,9 +255,12 @@ class MarketStructureAnalyzer:
         sell_score = 0.0
         reasons = []
 
-        # Guard against bad price
+        # 🔒 Triple-Lock Guard: Crash/Skip if price is zero to prevent invalid HOLD decisions
         if price <= 0 or m.nearest_support <= 0 or m.nearest_resist <= 0:
-            return "HOLD", 0.0, "Invalid price data"
+            msg = f"CRITICAL: Zero price data detected (Price={price}, Sup={m.nearest_support}, Res={m.nearest_resist})"
+            log.error(msg)
+            # Return a special signal that main.py will use to skip the tick
+            return "SKIP_TICK", 0.0, msg
 
         dist_sup = abs(price - m.nearest_support) / price
         dist_res = abs(price - m.nearest_resist)  / price
